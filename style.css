@@ -147,7 +147,7 @@ body {
 
   .legend{
     flex: 1;
-    padding: 4em;
+    padding: 6em;
     border: 2px;
     border-color: var(--color-accent1Dark);
     display: grid;

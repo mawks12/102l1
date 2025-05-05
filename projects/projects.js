@@ -1,14 +1,60 @@
 import { fetchJSON, renderProjects } from '../global.js';
 import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm';
 
-
 // D3 code for generating the plot in the projects page
 let arcGenerator = d3.arc().innerRadius(15).outerRadius(50);
 const projects = await fetchJSON('../lib/projects.json');
-
 let selectedIndex = -1;
-function projFormat(data) {
 
+let yearInd = {};
+let selectedYear = -1;
+
+let visProj = projects;
+let data = projFormat(projects);
+
+const projectsContainer = document.querySelector('.project');
+
+makePlot(data);
+console.log(yearInd);
+// add a search bar
+let query = '';
+
+let searchInput = document.querySelector('.searchBar');
+
+renderProjects(visProj, projectsContainer, 'h2');
+
+/*
+ * Update the visible projects value for rendering
+ * @returns Filtered list of the projects
+ */
+function updateProj() {
+  testVis = projects.filter((project) => {
+    let values = Object.values(project).join('\n').toLowerCase();
+    return values.includes(query.toLowerCase());
+  });
+
+  yearVis = testVis.filter((project) =>
+    project.year === selectedYear
+  );
+  return yearVis;
+}
+
+/*
+ * Take generated arcs for the pie chart and map each one to its asocciated year
+ * does not return anything, simply updates the global mapping
+ * @params
+ */
+function mapPlots(ind, year) {
+// TODO something using define property on the global object used to store all of this data
+  yearInd[ind] = year;
+}
+
+/*
+ * Formats the project data to be plotted
+ * @param {array} data: the input data, an array of jsons
+ * @returns {array}: the formated data for plotting
+ */
+function projFormat(data) {
   let rolledData = d3.rollups( // load relavent parts of the data
     data,
     (v) => v.length,
@@ -19,22 +65,25 @@ function projFormat(data) {
   });
   return formated
 }
-let visProj = projects;
-let data = projFormat(projects);
-function makePlot(data) {
-  let total = 0;
-  for (let d of data) {
-    total += d;
-  }
 
+
+
+/*
+ * Renders the plot to the website
+ * @param {array} data: the data to be plotted (the return of the projFormat function)
+ */
+function makePlot(data) {
 
   // Plotting graphics
   let angle = 0;
   let sliceGenerator = d3.pie().value((d) => d.value);
   let arcData = sliceGenerator(data);
   let arcs = arcData.map((d) => arcGenerator(d));
+
   // generating the plot
+  let total = 0;
   for (let d of data) {
+    total += 1;
     let endAngle = angle + (d / total) * 2 * Math.PI;
     arcData.push({ startAngle: angle, endAngle });
     angle = endAngle;
@@ -50,17 +99,20 @@ function makePlot(data) {
       .attr('fill', colors(idx));
   });
 
+  yearInd = {} // empty the year index since the legend is being regenerated
   let legend = d3.select('.legend');
-  console.log(legend);
   legend.html(null);
   data.forEach((d, idx) => {
     legend
       .append('li')
       .attr('style', `--color:${colors(idx)}`) // set the style attribute while passing in parameters
-      .attr('class', 'legend-elem')
+      .attr('class', (_, idx) => {
+        mapPlots(idx, d.label);
+        console.log(yearInd);
+        return idx === selectedIndex ? 'selected legend-elem' : 'legend-elem'
+      })
       .html(`<span class="swatch"></span>${d.label} <em>(${d.value})</em>`); // set the inner html of <li>
   });
-
 
   let svg = d3.select('svg');
   svg.selectAll('path').remove();
@@ -92,22 +144,13 @@ function makePlot(data) {
               .filter((d, i) =>
                 i === selectedIndex).text().split(/(\s+)/)[0]
           );
-        console.log(visProj);
         }
         renderProjects(visProj, projectsContainer, 'h2');
     });
   });
 }
 
-const projectsContainer = document.querySelector('.project');
-
-makePlot(data);
-
-// add a search bar
-let query = '';
-
-let searchInput = document.querySelector('.searchBar');
-
+// Event listener for the text search bar
 searchInput.addEventListener('input', (event) => {
   // update query value
   query = event.target.value.toLowerCase();
@@ -119,5 +162,3 @@ searchInput.addEventListener('input', (event) => {
   let projInfo = projFormat(visProj);
   makePlot(projInfo);
 });
-
-renderProjects(visProj, projectsContainer, 'h2');
