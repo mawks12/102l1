@@ -1,4 +1,5 @@
 import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm';
+import scrollama from 'https://cdn.jsdelivr.net/npm/scrollama@3.2.0/+esm';
 
 // Global variables for other fuctions
 
@@ -296,32 +297,32 @@ function updateScatterPlot(commits) {
     .selectAll('circle')
     .data(sortedCommits, (d) => d.id)
     .join('circle')
-    .transition()
     .attr('cx', (d) => xScale(d.datetime))
     .attr('cy', (d) => yScale(d.hourFrac))
     .attr('r', (d) => rScale(d.totalLines))
     .attr('fill', 'steelblue')
     .style('fill-opacity', 0.7) // Add transparency for overlapping dots
-    .on('mouseenter', (event, commit) => {
+    .on('mouseover', (event, commit) => {
       d3.select(event.currentTarget).style('fill-opacity', 1); // Full opacity on hover
       renderTooltipContent(commit);
-      updateTooltipVisibility(true);
+      d3.select("#commit-tooltip").style('visibility', 'visible')
       updateTooltipPosition(event);
     })
     .on('mouseleave', (event) => {
       d3.select(event.currentTarget).style('fill-opacity', 0.7);
-      updateTooltipVisibility(false);
+      d3.select("#commit-tooltip").style('visibility', 'hidden')
     });
 }
 
 
-function filterCommits() {
-  let timeCut = timeScale.invert(commitProgress);
-  let newData = commits.filter((commit) => commit.date < timeCut);
+function filterCommits(time) {
+  // let timeCut = timeScale.invert(commitProgress);
+  let newData = commits.filter((commit) => commit.date < time);
   return newData
 }
 
-function updateTimeDisplay() {
+
+function updateTimeDisplay(date) {
   commitProgress = Number(timeSlider.value);
   let time = timeScale.invert(commitProgress);
   selectedTime.textContent = time.toLocaleString('en-US', {
@@ -329,7 +330,7 @@ function updateTimeDisplay() {
     dateStyle: 'full'
   });
   drawFiles()
-  updateScatterPlot(filterCommits());
+  updateScatterPlot(filterCommits(date));
 }
 
 
@@ -339,7 +340,12 @@ function drawFiles() {
     .groups(lines, (d) => d.file)
     .map(([name, lines]) => {
       return { name, lines };
-    });
+    })
+    .sort((a, b) => b.lines.length - a.lines.length);
+
+
+  let colors = d3.scaleOrdinal(d3.schemeTableau10);
+
   let filesContainer = d3
     .select('#files')
     .selectAll('div')
@@ -351,16 +357,59 @@ function drawFiles() {
           div.append('dt').append('code');
           div.append('dd');
         }),
-    );
+    )
 
   // This code updates the div info
   filesContainer.select('dt > code').text((d) => d.name);
-  filesContainer.select('dd').text((d) => `${d.lines.length} lines`);
+  filesContainer.select('dd')
+    .selectAll('div')
+    .data((d) => d.lines)
+    .join('div')
+    .attr('class', 'loc')
+    .attr('style', (d) => `--attr-color: ${colors(d.type)}`);
 }
+
+
+
+function makeStory() {
+  d3.select('#scatter-story')
+    .selectAll('.step')
+    .data(commits)
+    .join('div')
+    .attr('class', 'step')
+    .html(
+      (d, i) => `
+		On ${d.datetime.toLocaleString('en', {
+        dateStyle: 'full',
+        timeStyle: 'short',
+      })},
+		I made <a href="${d.url}" target="_blank">${i > 0 ? 'another commit, of adequate quality' : 'my first commit, and it was glorious, or at least it worked'
+        }</a>.
+		I edited ${d.totalLines} lines across ${d3.rollups(
+          d.lines,
+          (D) => D.length,
+          (d) => d.file,
+        ).length
+        } files.
+		Then I looked over all I had made, and I saw that it was good enough to compile and run, and therefore must be sufficient.
+	`,
+    );
+}
+
+function dateSort(a, b) {
+  if (a.date > b.date) {
+    return 1
+  } else if (b.date === a.date) {
+    return -1
+  } else {
+    return 0
+  }
+}
+
 
 // initilize variables
 let data = await loadData();
-let commits = processCommits(data);
+let commits = processCommits(data).sort(dateSort);
 let commitProgress = 100;
 let timeScale = d3.scaleTime(
   [d3.min(commits, (d) => d.datetime), d3.max(commits, (d) => d.datetime)],
@@ -379,4 +428,21 @@ const selectedTime = document.getElementById('selected-time');
 timeSlider.addEventListener('input', updateTimeDisplay);
 renderScatterPlot(commits);
 renderCommitInfo(data, commits);
-drawFiles()
+drawFiles();
+makeStory();
+
+
+
+// Scrolly things
+
+function onStepEnter(response) {
+  updateTimeDisplay(response.element.__data__.date);
+}
+
+const scroller = scrollama();
+scroller
+  .setup({
+    container: '#scrolly-1',
+    step: '#scrolly-1 .step',
+  })
+  .onStepEnter(onStepEnter);

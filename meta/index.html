@@ -25,6 +25,7 @@
             </p>
         <![endif]-->
 
+
         <div id="stats"></div>
         <h2>Number of Commits by day</h2>
         <div class="selector">
@@ -34,19 +35,12 @@
             </label>
             <time id="selected-time"></time>
         </div>
-        <dl id="files">
-            <!-- we want the following structure for each file:
-                 <div>
-                 <dt>
-                 <code>{file.name}</code>
-                 </dt>
-                 <dd>{file.lines.length} lines</dd>
-                 </div>
-            -->
-        </dl>
-
-        <div id="chart"></div>
-
+        <div id="scrolly-1">
+            <div id="scatter-story">some filler text here</div>
+            <div id="scatter-plot">
+                <div id="chart"></div>
+            </div>
+        </div>
         <!-- Tooltip code -->
 
         <dl id="commit-tooltip" class="info tooltip">
@@ -63,6 +57,7 @@
 
         <p id="selection-count">No commits selected</p>
         <dl id="language-breakdown" class="stats"></dl>
+        <div id="files"></div>
     </body>
 
 </html>
